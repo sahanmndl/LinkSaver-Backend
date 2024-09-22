@@ -3,17 +3,32 @@ import LinkModel from "../models/link.js";
 import {extractDomain} from "../utils/strings.js";
 import mongoose from "mongoose";
 import {endOfDay, startOfDay} from "../utils/dates.js";
+import {defaultValues} from "../utils/constants.js";
+import axios from "axios";
+import * as cheerio from 'cheerio';
 
 export const createLink = async ({userId, title, description, url, tags}) => {
     try {
         const domain = extractDomain(url);
-        if (title === '') title = domain;
-        
+        const previewData = await extractUrlMetaData(url);
+
+        if (title === '') {
+            if (previewData.title !== '') {
+                title = previewData.title;
+            } else {
+                title = domain;
+            }
+        }
+        if (description === '' && previewData.description !== '') {
+            description = previewData.description;
+        }
+
         const link = await LinkModel.create({
             userId: userId,
             title: title.trim(),
             description: description.trim(),
             url: url.trim(),
+            image: previewData.image,
             domain: domain,
             tags: tags
         });
@@ -69,7 +84,7 @@ export const fetchLinksByUserId = async ({userId, page = 1, limit = 25, sortBy, 
 
         const hasMore = links.length > limit;
         let result = links.slice(0, limit);
-        
+
         return {links: result, hasMore: hasMore};
     } catch (e) {
         logger.error("Error in getAllLinksForUser " + e);
@@ -91,14 +106,14 @@ export const groupLinksByDomain = async ({userId, fromDate, tillDate}) => {
     try {
         const dayStart = startOfDay(fromDate);
         const dayEnd = endOfDay(tillDate);
-        
+
         const links = await LinkModel.find({
             userId: new mongoose.Types.ObjectId(userId),
             createdAt: {$gte: dayStart, $lte: dayEnd}
         })
             .lean()
             .exec();
-        
+
         let domainMap = new Map();
         links.forEach(link => {
             if (!domainMap.has(link?.domain)) {
@@ -107,7 +122,7 @@ export const groupLinksByDomain = async ({userId, fromDate, tillDate}) => {
             domainMap.get(link?.domain).count++;
             domainMap.get(link?.domain).links.push(link);
         });
-        
+
         let result = [];
         for (const [key, value] of domainMap) {
             result.push({
@@ -116,7 +131,7 @@ export const groupLinksByDomain = async ({userId, fromDate, tillDate}) => {
                 links: value.links || []
             })
         }
-        
+
         return result;
     } catch (e) {
         logger.error("Error in groupLinksByDomain " + e);
@@ -131,7 +146,7 @@ export const fetchLinksWithTags = async ({userId, tags, page = 1, limit = 25, so
         if (sortBy && (sortBy === 'createdAt' || sortBy === 'updatedAt' || sortBy === 'visits')) {
             sort[sortBy] = sortOrder && sortOrder.toLowerCase() === 'asc' ? 1 : -1;
         }
-        
+
         const links = await LinkModel.find({
             userId: new mongoose.Types.ObjectId(userId),
             tags: {$in: tags}
@@ -150,4 +165,27 @@ export const fetchLinksWithTags = async ({userId, tags, page = 1, limit = 25, so
         logger.error("Error in fetchLinksWithTags " + e);
         throw e;
     }
+}
+
+const extractUrlMetaData = async (url) => {
+    const previewData = {
+        image: defaultValues.URL_PREVIEW_IMAGE,
+        title: '',
+        description: ''
+    };
+    try {
+        const {data: html} = await axios.get(url);
+        const $ = cheerio.load(html);
+
+        const ogImage = $('meta[property="og:image"]').attr('content');
+        const ogTitle = $('meta[property="og:title"]').attr('content');
+        const ogDescription = $('meta[property="og:description"]').attr('content');
+
+        if (ogImage) previewData.image = ogImage;
+        if (ogTitle) previewData.title = ogTitle;
+        if (ogDescription) previewData.description = ogDescription;
+    } catch (e) {
+        logger.error("Error in extractUrlMetaData");
+    }
+    return previewData;
 }
