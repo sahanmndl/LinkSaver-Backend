@@ -28,8 +28,8 @@ const schemas = {
     }),
     getAllLinksForUser: joi.object().keys({
         page: joi.number().min(1).required(),
-        limit: joi.number().min(24).max(100).required(),
-        sortBy: joi.string().valid('createdAt', 'updatedAt', 'visits').required(),
+        limit: joi.number().min(12).max(100).required(),
+        sortBy: joi.string().valid('createdAt', 'updatedAt', 'visits', 'title').required(),
         sortOrder: joi.string().valid('asc', 'desc').required(),
     }),
     deleteLinkById: joi.object().keys({
@@ -42,7 +42,7 @@ const schemas = {
     getLinksForUserWithGivenTags: joi.object().keys({
         tags: joi.array().required(),
         page: joi.number().min(1).required(),
-        limit: joi.number().min(24).max(100).required(),
+        limit: joi.number().min(12).max(100).required(),
         sortBy: joi.string().valid('createdAt', 'updatedAt', 'visits').required(),
         sortOrder: joi.string().valid('asc', 'desc').required(),
     })

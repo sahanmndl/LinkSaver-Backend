@@ -3,8 +3,7 @@ import {
     deleteLink,
     fetchLinksByUserId,
     fetchLinksWithTags,
-    groupLinksByDomain,
-    updateLink
+    groupLinksByDomain, updateLink
 } from "../services/link.js";
 import {errorAPIResponse, successAPIResponse} from "../utils/response.js";
 import {logger} from "../config/logger.js";

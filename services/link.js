@@ -49,6 +49,8 @@ export const updateLink = async ({linkId, title, description, url, tags}) => {
         if (url) {
             update.url = url;
             update.domain = extractDomain(url);
+            const previewData = await extractUrlMetaData(url);
+            update.image = previewData.image;
         }
         if (tags) update.tags = tags;
 
@@ -69,23 +71,27 @@ export const fetchLinksByUserId = async ({userId, page = 1, limit = 25, sortBy, 
     try {
         const skip = (page - 1) * limit;
         const sort = {};
-        if (sortBy && (sortBy === 'createdAt' || sortBy === 'updatedAt' || sortBy === 'visits')) {
+        if (sortBy && (sortBy === 'createdAt' || sortBy === 'updatedAt' || sortBy === 'visits' || sortBy === 'title')) {
             sort[sortBy] = sortOrder && sortOrder.toLowerCase() === 'asc' ? 1 : -1;
         }
 
-        const links = await LinkModel.find({
+        const totalLinks = await LinkModel.countDocuments({
             userId: new mongoose.Types.ObjectId(userId)
-        })
-            .sort(sort)
-            .skip(skip)
-            .limit(limit + 1)
-            .lean()
-            .exec();
+        });
 
-        const hasMore = links.length > limit;
-        let result = links.slice(0, limit);
+        const query = {
+            userId: new mongoose.Types.ObjectId(userId)
+        }
+        const {links, hasMore} = await getPaginatedLinks({
+            query: query,
+            sort: sort,
+            skip: skip,
+            limit: limit
+        });
 
-        return {links: result, hasMore: hasMore};
+        const totalPages = Math.ceil(totalLinks / limit);
+
+        return {links: links, hasMore: hasMore, pages: totalPages};
     } catch (e) {
         logger.error("Error in getAllLinksForUser " + e);
         throw e;
@@ -132,6 +138,8 @@ export const groupLinksByDomain = async ({userId, fromDate, tillDate}) => {
             })
         }
 
+        result.sort((a, b) => b.count - a.count);
+
         return result;
     } catch (e) {
         logger.error("Error in groupLinksByDomain " + e);
@@ -147,20 +155,18 @@ export const fetchLinksWithTags = async ({userId, tags, page = 1, limit = 25, so
             sort[sortBy] = sortOrder && sortOrder.toLowerCase() === 'asc' ? 1 : -1;
         }
 
-        const links = await LinkModel.find({
+        const query = {
             userId: new mongoose.Types.ObjectId(userId),
             tags: {$in: tags}
-        })
-            .sort(sort)
-            .skip(skip)
-            .limit(limit + 1)
-            .lean()
-            .exec();
+        }
+        const {links, hasMore} = await getPaginatedLinks({
+            query: query,
+            sort: sort,
+            skip: skip,
+            limit: limit
+        });
 
-        const hasMore = links.length > limit;
-        const result = links.slice(0, limit);
-
-        return {links: result, hasMore: hasMore};
+        return {links: links, hasMore: hasMore};
     } catch (e) {
         logger.error("Error in fetchLinksWithTags " + e);
         throw e;
@@ -188,4 +194,24 @@ const extractUrlMetaData = async (url) => {
         logger.error("Error in extractUrlMetaData");
     }
     return previewData;
+}
+
+const getPaginatedLinks = async ({query, sort, skip, limit}) => {
+    try {
+        const links = await LinkModel
+            .find(query)
+            .sort(sort)
+            .skip(skip)
+            .limit(limit + 1)
+            .lean()
+            .exec();
+
+        const hasMore = links.length > limit;
+        const result = links.slice(0, limit);
+
+        return {links: result, hasMore: hasMore};
+    } catch (e) {
+        logger.error("Error in getPaginatedLinksForUser " + e);
+        throw e;
+    }
 }
