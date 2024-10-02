@@ -8,6 +8,8 @@ import {
 } from "../services/link.js";
 import {errorAPIResponse, successAPIResponse} from "../utils/response.js";
 import {logger} from "../config/logger.js";
+import {amqpEvents, amqpQueues} from "../utils/constants.js";
+import {publishEvent} from "../queue/functions.js";
 
 export const addLink = async (req, res, next) => {
     try {
@@ -78,5 +80,25 @@ export const getLinksForUserWithGivenTags = async (req, res, next) => {
     } catch (e) {
         logger.error("Error in getLinksForUserWithGivenTags " + e);
         return res.status(500).json(errorAPIResponse("Cannot get links", false));
+    }
+}
+
+export const incrementLinkVisitCount = async (req, res, next) => {
+    try {
+        const userId = req.userId;
+        const {linkId} = req.params;
+
+        const event = {
+            name: amqpEvents.INCREMENT_LINK_VISITS,
+            linkId: linkId,
+            userId: userId,
+        }
+        await publishEvent(amqpQueues.LINKS, event);
+
+        const response = "Event has been published!";
+        return res.status(200).json(successAPIResponse(response, true));
+    } catch (e) {
+        logger.error("Error in incrementLinkVisitCount " + e);
+        return res.status(500).json(errorAPIResponse("Cannot increment visit count", false));
     }
 }

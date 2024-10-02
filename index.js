@@ -6,6 +6,7 @@ import {rateLimiter} from "./config/rateLimiter.js";
 import {logger} from "./config/logger.js";
 import {connectMongoDB} from "./config/db.js";
 import {connectToCacheDB} from "./cache/redis.js";
+import {connectToAMQP} from "./queue/functions.js";
 import serverRouter from "./routes/server.js";
 import userRoutes from "./routes/user.js";
 import linkRoutes from "./routes/link.js";
@@ -30,6 +31,7 @@ app.use("/api/v1/link", linkRoutes)
 
 app.listen((process.env.PORT || 8008), async () => {
     logger.info("Server is running on port " + process.env.PORT);
-    await connectMongoDB()
-    await connectToCacheDB()
+    await connectMongoDB();
+    await connectToCacheDB();
+    await connectToAMQP();
 })
