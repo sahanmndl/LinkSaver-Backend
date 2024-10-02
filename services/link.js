@@ -49,6 +49,7 @@ export const updateLink = async ({linkId, title, description, url, tags}) => {
         if (url) {
             update.url = url;
             update.domain = extractDomain(url);
+            // update.visits = 0;  //TODO: When ONLY url is changed, reset the visits count; Find Link first, update then link.save()
             const previewData = await extractUrlMetaData(url);
             update.image = previewData.image;
         }
@@ -169,6 +170,25 @@ export const fetchLinksWithTags = async ({userId, tags, page = 1, limit = 25, so
         return {links: links, hasMore: hasMore};
     } catch (e) {
         logger.error("Error in fetchLinksWithTags " + e);
+        throw e;
+    }
+}
+
+export const updateVisitCount = async ({userId, linkId}) => {
+    try {
+        const link = await LinkModel.findOne({
+            _id: new mongoose.Types.ObjectId(linkId),
+            userId: new mongoose.Types.ObjectId(userId),
+        });
+
+        if (!link) throw new Error(`Link not found`);
+
+        link.visits = (link.visits || 0) + 1;
+        await link.save();
+
+        return link;
+    } catch (e) {
+        logger.error("Error in incrementLinkVisitCount " + e);
         throw e;
     }
 }

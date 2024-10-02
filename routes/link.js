@@ -4,7 +4,9 @@ import {
     addLink,
     deleteLinkById,
     getAllLinksForUser,
-    getLinksForUserGroupedByDomain, getLinksForUserWithGivenTags,
+    getLinksForUserGroupedByDomain,
+    getLinksForUserWithGivenTags,
+    incrementLinkVisitCount,
     updateLinkById
 } from "../controllers/link.js";
 import {schemaValidation} from "../middleware/schemaValidation.js";
@@ -45,7 +47,10 @@ const schemas = {
         limit: joi.number().min(12).max(100).required(),
         sortBy: joi.string().valid('createdAt', 'updatedAt', 'visits').required(),
         sortOrder: joi.string().valid('asc', 'desc').required(),
-    })
+    }),
+    incrementLinkVisitCount: joi.object().keys({
+        linkId: joi.string().min(1).max(1024).required(),
+    }),
 }
 
 linkRoutes.post("/", schemaValidation(schemas.addLink, "body"), verifyAuthToken, addLink);
@@ -54,5 +59,6 @@ linkRoutes.get('/', schemaValidation(schemas.getAllLinksForUser, 'query'), verif
 linkRoutes.delete('/:linkId', schemaValidation(schemas.deleteLinkById, 'params'), verifyAuthToken, deleteLinkById);
 linkRoutes.get('/group/domain', schemaValidation(schemas.getLinksForUserGroupedByDomain, 'query'), verifyAuthToken, getLinksForUserGroupedByDomain);
 linkRoutes.get('/search/tags', schemaValidation(schemas.getLinksForUserWithGivenTags, 'query'), verifyAuthToken, getLinksForUserWithGivenTags);
+linkRoutes.put('/visits/:linkId', schemaValidation(schemas.incrementLinkVisitCount, 'params'), verifyAuthToken, incrementLinkVisitCount);
 
 export default linkRoutes;
